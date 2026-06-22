@@ -53,12 +53,15 @@ jobs:
         run: |
           find . -maxdepth 5 -not -path '*/.*' -not -path '*/Library*' -not -path '*/HostedToolCache*'
 
-      - name: Locate and Rename IPA
+      - name: Locate and Package IPA
         run: |
-          # Flet builds the ipa to build/ipa/ or build/ios/ipa/
-          # We search the entire workspace recursively to find the .ipa file
+          # Because codesigning is disabled, Xcode builds a .xcarchive instead of .ipa.
+          # We manually package the .app folder from the xcarchive into an unsigned .ipa (Payload zip).
           mkdir -p output
-          find . -name "*.ipa" -exec cp {} output/mathocr.ipa \;
+          mkdir -p Payload
+          cp -r ipad_app/build/ipa/ipad_app.xcarchive/Products/Applications/*.app Payload/
+          zip -r output/mathocr.ipa Payload
+          rm -rf Payload
           ls -R output
 
       - name: Upload IPA Artifact
