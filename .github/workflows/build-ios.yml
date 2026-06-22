@@ -54,7 +54,7 @@ jobs:
           # Flet builds the ipa to build/ipa/ or build/ios/ipa/
           # Let's locate it and rename/copy it to a convenient folder
           mkdir -p output
-          find build -name "*.ipa" -exec cp {} output/mathocr.ipa \;
+          find ipad_app/build -name "*.ipa" -exec cp {} output/mathocr.ipa \;
           ls -R output
 
       - name: Upload IPA Artifact
