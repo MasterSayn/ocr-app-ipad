@@ -1,0 +1,63 @@
+name: Build Flet iOS App
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.x'
+          channel: 'stable'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flet gradio_client cryptography
+
+      - name: Inject Secrets
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python -c "
+          import os
+          path = 'ipad_app/main.py'
+          content = open(path).read()
+          content = content.replace('HF_TOKEN_PLACEHOLDER', os.environ.get('HF_TOKEN', ''))
+          open(path, 'w').write(content)
+          "
+
+      - name: Build iOS app (Unsigned IPA)
+        run: |
+          # Run Flet build ipa in the ipad_app directory.
+          # We pass --no-codesign to Flutter to allow building without a developer account.
+          flet build ipa ipad_app --flutter-build-args="--no-codesign"
+
+      - name: Locate and Rename IPA
+        run: |
+          # Flet builds the ipa to build/ipa/ or build/ios/ipa/
+          # Let's locate it and rename/copy it to a convenient folder
+          mkdir -p output
+          find build -name "*.ipa" -exec cp {} output/mathocr.ipa \;
+          ls -R output
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mathocr-unsigned-ipa
+          path: output/mathocr.ipa
