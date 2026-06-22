@@ -7,7 +7,8 @@ import time
 
 # Hugging Face Settings
 HF_SPACE = "MasterSayn/ocr-app-private"
-HF_TOKEN = "HF_TOKEN_PLACEHOLDER"
+HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
+
 
 def main(page: ft.Page):
     page.title = "Math & Handwritten OCR Central"
