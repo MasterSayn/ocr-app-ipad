@@ -1,0 +1,3 @@
+flet
+gradio_client
+cryptography
