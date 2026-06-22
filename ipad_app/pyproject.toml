@@ -1,0 +1,25 @@
+[tool.flet]
+app_name = "mathocr"
+formal_name = "Math OCR"
+description = "Multi-Mode Math and Handwritten OCR App"
+version = "1.0.0"
+author = "MasterSayn"
+
+[tool.briefcase]
+project_name = "MathOCR"
+bundle = "com.mastersayn"
+version = "1.0.0"
+description = "Multi-Mode Math and Handwritten OCR App"
+
+[tool.briefcase.app.mathocr]
+formal_name = "Math OCR"
+description = "Multi-Mode Math and Handwritten OCR App"
+sources = ["."]
+requires = [
+    "flet",
+    "gradio_client",
+    "cryptography"
+]
+
+[tool.briefcase.app.mathocr.iOS]
+requires = []
