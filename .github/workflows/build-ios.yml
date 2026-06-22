@@ -49,6 +49,10 @@ jobs:
           # We pipe "yes" to automatically accept downloading the required Flutter SDK.
           yes | flet build ipa ipad_app --flutter-build-args="--no-codesign"
 
+      - name: List all files in workspace
+        run: |
+          find . -maxdepth 5 -not -path '*/.*' -not -path '*/Library*' -not -path '*/HostedToolCache*'
+
       - name: Locate and Rename IPA
         run: |
           # Flet builds the ipa to build/ipa/ or build/ios/ipa/
