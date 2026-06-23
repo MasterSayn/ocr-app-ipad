@@ -1,32 +1,53 @@
-import flet as ft
-import shutil
-import threading
 import os
 import time
 import traceback
 import sys
 
-# Wrap the import of gradio_client and dependencies
+def log_to_file(message):
+    try:
+        doc_dir = os.path.join(os.path.expanduser("~"), "Documents")
+        if not os.path.exists(doc_dir):
+            os.makedirs(doc_dir, exist_ok=True)
+        log_path = os.path.join(doc_dir, "app_log.txt")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+    except:
+        pass
+
+log_to_file("main.py execution started.")
+
 IMPORT_ERROR = None
 try:
+    log_to_file("Importing flet...")
+    import flet as ft
+    log_to_file("flet imported successfully!")
+    
+    log_to_file("Importing standard libraries...")
+    import shutil
+    import threading
+    
+    log_to_file("Attempting to import gradio_client...")
     from gradio_client import Client
+    log_to_file("gradio_client imported successfully!")
 except Exception as e:
     IMPORT_ERROR = traceback.format_exc()
+    log_to_file(f"Import failed: {IMPORT_ERROR}")
 
 # Hugging Face Settings
-# Try to get HF_TOKEN from env or local file if any
 HF_SPACE = "MasterSayn/ocr-app-private"
 HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
 
 def main(page: ft.Page):
-    if IMPORT_ERROR:
-        page.title = "App-Fehler beim Start"
-        page.theme_mode = ft.ThemeMode.DARK
-        page.bgcolor = "#0B0C10"
-        page.add(
-            ft.SafeArea(
-                content=ft.Column([
+    try:
+        log_to_file("main() entry point reached.")
+        if IMPORT_ERROR:
+            log_to_file("Displaying import error UI...")
+            page.title = "App-Fehler beim Start"
+            page.theme_mode = ft.ThemeMode.DARK
+            page.bgcolor = "#0B0C10"
+            page.add(
+                ft.Column([
                     ft.Icon(ft.icons.ERROR_OUTLINE_ROUNDED, color=ft.colors.RED, size=50),
                     ft.Text("Fehler beim Starten der App (Import-Fehler):", size=20, color=ft.colors.RED, weight=ft.FontWeight.BOLD),
                     ft.Container(
@@ -45,8 +66,7 @@ def main(page: ft.Page):
                     )
                 ], spacing=15, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
             )
-        )
-        return
+            return
 
     page.title = "Math & Handwritten OCR Central"
     page.theme_mode = ft.ThemeMode.DARK
@@ -307,22 +327,23 @@ def main(page: ft.Page):
     )
 
     # Layout compilation
-    page.add(
-        ft.SafeArea(
-            content=ft.Column([
-                header,
-                ft.Row([
-                    ft.Column([
-                        file_card,
-                        mode_card,
-                        start_button,
-                        progress_container,
-                        result_card
-                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=30)
-                ], alignment=ft.MainAxisAlignment.CENTER)
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        log_to_file("Assembling layout...")
+        page.scroll = ft.ScrollMode.AUTO
+        page.add(
+            header,
+            ft.Row([file_card], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([mode_card], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([start_button], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([progress_container], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row([result_card], alignment=ft.MainAxisAlignment.CENTER)
         )
-    )
+        log_to_file("Layout successfully built and added.")
+    except Exception as ex:
+        log_to_file(f"Error inside main(): {traceback.format_exc()}")
+        try:
+            page.add(ft.Text(f"Exception: {ex}", color=ft.colors.RED))
+        except:
+            pass
 
 if __name__ == "__main__":
     ft.app(target=main)
