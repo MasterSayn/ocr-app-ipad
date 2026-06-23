@@ -177,7 +177,7 @@ def main(page: ft.Page):
                 ],
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            margin=ft.margin.only(bottom=30),
+            margin=ft.Margin(0, 0, 0, 30),
         )
 
         log_to_file("Building UI components: File Card...")
