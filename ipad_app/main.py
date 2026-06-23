@@ -146,8 +146,10 @@ def main(page: ft.Page):
             except Exception as ex:
                 log_to_file(f"save_file_result error: {traceback.format_exc()}")
 
-        file_picker = ft.FilePicker(on_result=pick_files_result)
-        save_file_picker = ft.FilePicker(on_result=save_file_result)
+        file_picker = ft.FilePicker()
+        file_picker.on_result = pick_files_result
+        save_file_picker = ft.FilePicker()
+        save_file_picker.on_result = save_file_result
         page.overlay.extend([file_picker, save_file_picker])
         log_to_file("File Pickers added to overlay.")
 
