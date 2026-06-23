@@ -312,15 +312,15 @@ def main(page: ft.Page):
                     ft.Text("Dein durchsuchbares PDF wurde erstellt.", size=15, color=MUTED_TEXT),
                     ft.Row(
                         [
-                            ft.ElevatedButton(
-                                text="In Dateien speichern",
+                            ft.Button(
+                                content="In Dateien speichern",
                                 icon=ft.Icons.SAVE,
                                 on_click=download_click,
                                 color=TEXT_COLOR,
                                 bgcolor=PRIMARY_COLOR,
                             ),
-                            ft.ElevatedButton(
-                                text="Neues PDF",
+                            ft.Button(
+                                content="Neues PDF",
                                 icon=ft.Icons.REFRESH,
                                 on_click=reset_click,
                                 color=TEXT_COLOR,
@@ -544,8 +544,8 @@ def main(page: ft.Page):
             page.update()
             threading.Thread(target=run_ocr, daemon=True).start()
 
-        start_button = ft.ElevatedButton(
-            text="OCR Starten",
+        start_button = ft.Button(
+            content="OCR Starten",
             icon=ft.Icons.PLAY_ARROW,
             on_click=start_ocr_click,
             disabled=True,
