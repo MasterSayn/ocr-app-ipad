@@ -127,8 +127,8 @@ async def main(page: ft.Page):
         # ---- Snack bar for status messages ----
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
         picker = ft.FilePicker()
-        share_service = ft.Share()
-        page.overlay.extend([status_snack, picker, share_service])
+        # share_service removed due to Flet iOS runner limitations
+        page.overlay.extend([status_snack, picker])
 
         log_to_file("Building UI components: Header...")
         header = ft.Container(
@@ -281,8 +281,8 @@ async def main(page: ft.Page):
             start_button.visible = True
             page.update()
 
-        cancel_button = ft.Button(
-            content="Abbrechen",
+        cancel_button = ft.ElevatedButton(
+            text="Abbrechen",
             icon=ft.Icons.CANCEL,
             on_click=cancel_ocr_click,
             color=TEXT_COLOR,
@@ -333,14 +333,17 @@ async def main(page: ft.Page):
             nonlocal downloaded_result_path
             if downloaded_result_path:
                 try:
-                    log_to_file("Opening share sheet...")
-                    share_file = ft.ShareFile(
-                        path=downloaded_result_path,
-                        name=f"ocr_{selected_file_name}"
+                    log_to_file("Showing share instructions...")
+                    status_snack.content = ft.Text(
+                        "Teilen-Tipp: Nutze 'In Dateien speichern' und teile von dort!",
+                        size=13,
+                        color=ft.Colors.WHITE
                     )
-                    await share_service.share_files([share_file])
+                    status_snack.bgcolor = ft.Colors.BLUE_900
+                    status_snack.open = True
+                    page.update()
                 except Exception as ex:
-                    log_to_file(f"share_files error: {traceback.format_exc()}")
+                    log_to_file(f"share_click error: {traceback.format_exc()}")
 
         async def reset_click(e):
             nonlocal selected_file_path, selected_file_name, downloaded_result_path
@@ -365,22 +368,22 @@ async def main(page: ft.Page):
                     ft.Text("Dein durchsuchbares PDF wurde erstellt.", size=15, color=MUTED_TEXT),
                     ft.Row(
                         [
-                            ft.Button(
-                                content="In Dateien speichern",
+                            ft.ElevatedButton(
+                                text="In Dateien speichern",
                                 icon=ft.Icons.SAVE,
                                 on_click=download_click,
                                 color=TEXT_COLOR,
                                 bgcolor=PRIMARY_COLOR,
                             ),
-                            ft.Button(
-                                content="Teilen",
+                            ft.ElevatedButton(
+                                text="Teilen",
                                 icon=ft.Icons.SHARE,
                                 on_click=share_click,
                                 color=TEXT_COLOR,
                                 bgcolor=PRIMARY_COLOR,
                             ),
-                            ft.Button(
-                                content="Neues PDF",
+                            ft.ElevatedButton(
+                                text="Neues PDF",
                                 icon=ft.Icons.REFRESH,
                                 on_click=reset_click,
                                 color=TEXT_COLOR,
@@ -662,8 +665,8 @@ async def main(page: ft.Page):
             page.update()
             ocr_task = page.run_task(run_ocr)
 
-        start_button = ft.Button(
-            content="OCR Starten",
+        start_button = ft.ElevatedButton(
+            text="OCR Starten",
             icon=ft.Icons.PLAY_ARROW,
             on_click=start_ocr_click,
             disabled=True,
