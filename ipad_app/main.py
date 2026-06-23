@@ -540,7 +540,25 @@ async def main(page: ft.Page):
                 page.update()
 
                 result_url = output_file_info["url"]
-                log_to_file(f"Downloading result from: {result_url}")
+                try:
+                    parsed_url = urllib.parse.urlparse(result_url)
+                    encoded_path = urllib.parse.quote(parsed_url.path, safe="/=")
+                    encoded_query = urllib.parse.quote(parsed_url.query, safe="=&")
+                    safe_url = urllib.parse.urlunparse(
+                        (
+                            parsed_url.scheme,
+                            parsed_url.netloc,
+                            encoded_path,
+                            parsed_url.params,
+                            encoded_query,
+                            parsed_url.fragment
+                        )
+                    )
+                    log_to_file(f"Downloading result from (original): {result_url}")
+                    log_to_file(f"Downloading result from (safe/encoded): {safe_url}")
+                    result_url = safe_url
+                except Exception as parse_err:
+                    log_to_file(f"Failed to URL encode result_url: {parse_err}")
 
                 download_req = urllib.request.Request(result_url)
                 for k, v in auth_headers.items():
