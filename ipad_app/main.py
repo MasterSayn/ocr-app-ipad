@@ -39,34 +39,33 @@ HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
 
 def main(page: ft.Page):
-    try:
-        log_to_file("main() entry point reached.")
-        if IMPORT_ERROR:
-            log_to_file("Displaying import error UI...")
-            page.title = "App-Fehler beim Start"
-            page.theme_mode = ft.ThemeMode.DARK
-            page.bgcolor = "#0B0C10"
-            page.add(
-                ft.Column([
-                    ft.Icon(ft.icons.ERROR_OUTLINE_ROUNDED, color=ft.colors.RED, size=50),
-                    ft.Text("Fehler beim Starten der App (Import-Fehler):", size=20, color=ft.colors.RED, weight=ft.FontWeight.BOLD),
-                    ft.Container(
-                        content=ft.Text(IMPORT_ERROR, size=12, color=ft.colors.WHITE, font_family="monospace"),
-                        bgcolor="#1F2833",
-                        padding=15,
-                        border_radius=10,
-                        border=ft.border.all(1, ft.colors.OUTLINE),
-                    ),
-                    ft.Text(
-                        "Dies bedeutet, dass eine Python-Bibliothek (z.B. gradio_client oder eine ihrer Abhängigkeiten wie cryptography) "
-                        "nicht mit iOS/iPadOS kompatibel ist, da sie kompilierte C- bzw. Rust-Erweiterungen enthält. "
-                        "Falls dies der Fall ist, werde ich die App so umschreiben, dass sie rein über Standard-Web-Anfragen (urllib) mit dem Server kommuniziert.",
-                        size=14,
-                        color="#C5C6C7"
-                    )
-                ], spacing=15, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
-            )
-            return
+    log_to_file("main() entry point reached.")
+    if IMPORT_ERROR:
+        log_to_file("Displaying import error UI...")
+        page.title = "App-Fehler beim Start"
+        page.theme_mode = ft.ThemeMode.DARK
+        page.bgcolor = "#0B0C10"
+        page.add(
+            ft.Column([
+                ft.Icon(ft.icons.ERROR_OUTLINE_ROUNDED, color=ft.colors.RED, size=50),
+                ft.Text("Fehler beim Starten der App (Import-Fehler):", size=20, color=ft.colors.RED, weight=ft.FontWeight.BOLD),
+                ft.Container(
+                    content=ft.Text(IMPORT_ERROR, size=12, color=ft.colors.WHITE, font_family="monospace"),
+                    bgcolor="#1F2833",
+                    padding=15,
+                    border_radius=10,
+                    border=ft.border.all(1, ft.colors.OUTLINE),
+                ),
+                ft.Text(
+                    "Dies bedeutet, dass eine Python-Bibliothek (z.B. gradio_client oder eine ihrer Abhängigkeiten wie cryptography) "
+                    "nicht mit iOS/iPadOS kompatibel ist, da sie kompilierte C- bzw. Rust-Erweiterungen enthält. "
+                    "Falls dies der Fall ist, werde ich die App so umschreiben, dass sie rein über Standard-Web-Anfragen (urllib) mit dem Server kommuniziert.",
+                    size=14,
+                    color="#C5C6C7"
+                )
+            ], spacing=15, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        )
+        return
 
     page.title = "Math & Handwritten OCR Central"
     page.theme_mode = ft.ThemeMode.DARK
@@ -327,23 +326,18 @@ def main(page: ft.Page):
     )
 
     # Layout compilation
-        log_to_file("Assembling layout...")
-        page.scroll = ft.ScrollMode.AUTO
-        page.add(
-            header,
-            ft.Row([file_card], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([mode_card], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([start_button], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([progress_container], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([result_card], alignment=ft.MainAxisAlignment.CENTER)
-        )
-        log_to_file("Layout successfully built and added.")
-    except Exception as ex:
-        log_to_file(f"Error inside main(): {traceback.format_exc()}")
-        try:
-            page.add(ft.Text(f"Exception: {ex}", color=ft.colors.RED))
-        except:
-            pass
+    # Layout compilation
+    log_to_file("Assembling layout...")
+    page.scroll = ft.ScrollMode.AUTO
+    page.add(
+        header,
+        ft.Row([file_card], alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([mode_card], alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([start_button], alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([progress_container], alignment=ft.MainAxisAlignment.CENTER),
+        ft.Row([result_card], alignment=ft.MainAxisAlignment.CENTER)
+    )
+    log_to_file("Layout successfully built and added.")
 
 if __name__ == "__main__":
     ft.app(target=main)
