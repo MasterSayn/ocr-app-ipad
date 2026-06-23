@@ -16,9 +16,7 @@ formal_name = "Math OCR"
 description = "Multi-Mode Math and Handwritten OCR App"
 sources = ["."]
 requires = [
-    "flet",
-    "gradio_client",
-    "cryptography"
+    "flet"
 ]
 
 [tool.briefcase.app.mathocr.iOS]
