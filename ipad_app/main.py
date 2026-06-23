@@ -3,6 +3,7 @@ import time
 import sys
 import tempfile
 import traceback
+import asyncio
 
 def log_to_file(message):
     """Write log to all accessible directories for debugging."""
@@ -50,8 +51,6 @@ except Exception as e:
 HF_SPACE = "MasterSayn/ocr-app-private"
 HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
-
-
 def border_all(width, color):
     return ft.Border(
         ft.BorderSide(width, color),
@@ -60,8 +59,7 @@ def border_all(width, color):
         ft.BorderSide(width, color)
     )
 
-
-def show_error_on_page(page, title, error_text):
+async def show_error_on_page(page, title, error_text):
     """Helper: display an error message on the page so it's visible on the iPad."""
     try:
         page.clean()
@@ -88,12 +86,12 @@ def show_error_on_page(page, title, error_text):
                 scroll=ft.ScrollMode.AUTO,
             )
         )
-        page.update()
+        await page.update()
     except Exception as inner_err:
         log_to_file(f"CRITICAL: Could not even display error on page: {inner_err}")
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
     log_to_file("main() entered.")
 
     # ---- Handle import errors ----
@@ -101,7 +99,7 @@ def main(page: ft.Page):
         log_to_file("Displaying import error UI...")
         page.title = "App-Fehler"
         page.theme_mode = ft.ThemeMode.DARK
-        show_error_on_page(page, "Fehler beim Starten (Import-Fehler):", IMPORT_ERROR)
+        await show_error_on_page(page, "Fehler beim Starten (Import-Fehler):", IMPORT_ERROR)
         return
 
     # ---- Wrap EVERYTHING in try/except so any crash is visible ----
@@ -110,7 +108,7 @@ def main(page: ft.Page):
         page.title = "Math & Handwritten OCR Central"
         page.theme_mode = ft.ThemeMode.DARK
         page.padding = 30
-        page.bgcolor = "#1B2631"  # Hardcoded dark blue-grey instead of ft.colors constant
+        page.bgcolor = "#1B2631"
 
         # State variables
         selected_file_path = None
@@ -123,45 +121,6 @@ def main(page: ft.Page):
         TEXT_COLOR = "#FFFFFF"
         MUTED_TEXT = "#C5C6C7"
         ACCENT_COLOR = "#66FCF1"
-
-        log_to_file("Defining File Pickers...")
-
-        def pick_files_result(e):
-            nonlocal selected_file_path, selected_file_name
-            try:
-                if e.files:
-                    selected_file_path = e.files[0].path
-                    selected_file_name = e.files[0].name
-                    file_name_text.value = selected_file_name
-                    file_size_text.value = f"Groesse: {round(e.files[0].size / 1024 / 1024, 2)} MB"
-                    start_button.disabled = False
-                    file_card.border = border_all(2, ACCENT_COLOR)
-                else:
-                    file_name_text.value = "Keine Datei ausgewaehlt"
-                    file_size_text.value = ""
-                    start_button.disabled = True
-                    file_card.border = border_all(1, "#555555")
-                page.update()
-            except Exception as ex:
-                log_to_file(f"pick_files_result error: {traceback.format_exc()}")
-
-        def save_file_result(e):
-            try:
-                if e.path and downloaded_result_path:
-                    shutil.copy(downloaded_result_path, e.path)
-                    status_snack.content = ft.Text("Datei erfolgreich gespeichert!")
-                    status_snack.bgcolor = ft.Colors.GREEN
-                    status_snack.open = True
-                    page.update()
-            except Exception as ex:
-                log_to_file(f"save_file_result error: {traceback.format_exc()}")
-
-        file_picker = ft.FilePicker()
-        file_picker.on_result = pick_files_result
-        save_file_picker = ft.FilePicker()
-        save_file_picker.on_result = save_file_result
-        page.overlay.extend([file_picker, save_file_picker])
-        log_to_file("File Pickers added to overlay.")
 
         # ---- Snack bar for status messages ----
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
@@ -194,6 +153,32 @@ def main(page: ft.Page):
         file_name_text = ft.Text("Tippe, um eine PDF-Datei auszuwaehlen", size=17, color=TEXT_COLOR, weight=ft.FontWeight.W_500)
         file_size_text = ft.Text("", size=14, color=MUTED_TEXT)
 
+        async def pick_files_click(e):
+            nonlocal selected_file_path, selected_file_name
+            try:
+                log_to_file("Opening file picker...")
+                picker = ft.FilePicker()
+                # pick_files is async and returns selected files directly
+                result = await picker.pick_files(allowed_extensions=["pdf"])
+                
+                if result and result[0].path:
+                    selected_file_path = result[0].path
+                    selected_file_name = result[0].name
+                    file_name_text.value = selected_file_name
+                    file_size_text.value = f"Groesse: {round(result[0].size / 1024 / 1024, 2)} MB"
+                    start_button.disabled = False
+                    file_card.border = border_all(2, ACCENT_COLOR)
+                    log_to_file(f"File selected: {selected_file_name}")
+                else:
+                    file_name_text.value = "Tippe, um eine PDF-Datei auszuwaehlen"
+                    file_size_text.value = ""
+                    start_button.disabled = True
+                    file_card.border = border_all(1, "#555555")
+                    log_to_file("File picking cancelled.")
+                await page.update()
+            except Exception as ex:
+                log_to_file(f"pick_files error: {traceback.format_exc()}")
+
         file_card = ft.Container(
             content=ft.Column(
                 [
@@ -210,7 +195,7 @@ def main(page: ft.Page):
             border_radius=18,
             border=border_all(1, "#555555"),
             alignment=ft.Alignment(0, 0),
-            on_click=lambda _: file_picker.pick_files(allowed_extensions=["pdf"]),
+            on_click=pick_files_click,
         )
 
         log_to_file("Building UI components: Mode Card...")
@@ -285,11 +270,34 @@ def main(page: ft.Page):
 
         log_to_file("Building UI components: Result card...")
 
-        def download_click(e):
+        async def download_click(e):
+            nonlocal downloaded_result_path
             if downloaded_result_path:
-                save_file_picker.save_file(file_name=f"ocr_{selected_file_name}")
+                try:
+                    log_to_file("Opening save file dialog...")
+                    picker = ft.FilePicker()
+                    # save_file is async and returns the selected path directly on mobile/web
+                    # On mobile/web, we MUST pass src_bytes as it doesn't give us direct filesystem write access
+                    with open(downloaded_result_path, "rb") as f:
+                        file_bytes = f.read()
+                    
+                    save_path = await picker.save_file(
+                        file_name=f"ocr_{selected_file_name}",
+                        file_type=ft.FilePickerFileType.CUSTOM,
+                        allowed_extensions=["pdf"],
+                        src_bytes=file_bytes
+                    )
+                    
+                    if save_path:
+                        log_to_file(f"Saved file to: {save_path}")
+                        status_snack.content = ft.Text("Datei erfolgreich gespeichert!")
+                        status_snack.bgcolor = ft.Colors.GREEN
+                        status_snack.open = True
+                        await page.update()
+                except Exception as ex:
+                    log_to_file(f"save_file_result error: {traceback.format_exc()}")
 
-        def reset_click(e):
+        async def reset_click(e):
             nonlocal selected_file_path, selected_file_name, downloaded_result_path
             selected_file_path = None
             selected_file_name = ""
@@ -302,7 +310,7 @@ def main(page: ft.Page):
             mode_card.visible = True
             progress_container.visible = False
             result_card.visible = False
-            page.update()
+            await page.update()
 
         result_card = ft.Container(
             content=ft.Column(
@@ -340,14 +348,15 @@ def main(page: ft.Page):
 
         log_to_file("Building UI components: Start button and OCR logic...")
 
-        def run_ocr():
+        async def run_ocr():
             nonlocal downloaded_result_path
             try:
-                log_to_file("run_ocr thread started.")
+                log_to_file("run_ocr async task started.")
                 progress_status.value = "PDF-Datei wird vorbereitet..."
                 progress_bar.value = 0.05
-                page.update()
+                await page.update()
 
+                loop = asyncio.get_event_loop()
                 space_url = "https://mastersayn-ocr-app-private.hf.space/gradio_api"
                 auth_headers = {"Authorization": f"Bearer {HF_TOKEN}"}
                 log_to_file(f"Targeting space: {HF_SPACE} via {space_url}")
@@ -355,7 +364,7 @@ def main(page: ft.Page):
                 # 1. Upload the PDF file
                 progress_status.value = "PDF-Datei wird hochgeladen..."
                 progress_bar.value = 0.1
-                page.update()
+                await page.update()
 
                 log_to_file(f"Uploading file: {selected_file_path}")
                 boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
@@ -381,15 +390,19 @@ def main(page: ft.Page):
                     upload_req.add_header(k, v)
                 upload_req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
 
-                with urllib.request.urlopen(upload_req, timeout=120) as r:
-                    resp = json.loads(r.read().decode("utf-8"))
-                    log_to_file(f"Upload completed. Response: {resp}")
-                    remote_file_path = resp[0]
+                # Run blocking upload request in thread pool
+                def perform_upload():
+                    with urllib.request.urlopen(upload_req, timeout=120) as r:
+                        return json.loads(r.read().decode("utf-8"))
+
+                resp = await loop.run_in_executor(None, perform_upload)
+                log_to_file(f"Upload completed. Response: {resp}")
+                remote_file_path = resp[0]
 
                 # 2. Join the queue for predictions
                 progress_status.value = "Warteschlange beitreten..."
                 progress_bar.value = 0.2
-                page.update()
+                await page.update()
 
                 session_hash = uuid.uuid4().hex[:10]
                 log_to_file(f"Joining queue with session_hash: {session_hash}")
@@ -413,15 +426,19 @@ def main(page: ft.Page):
                     join_req.add_header(k, v)
                 join_req.add_header("Content-Type", "application/json")
 
-                with urllib.request.urlopen(join_req, timeout=30) as r:
-                    join_resp = json.loads(r.read().decode("utf-8"))
-                    log_to_file(f"Join completed. Response: {join_resp}")
-                    event_id = join_resp.get("event_id", "unknown")
+                # Run blocking join request in thread pool
+                def perform_join():
+                    with urllib.request.urlopen(join_req, timeout=30) as r:
+                        return json.loads(r.read().decode("utf-8"))
+
+                join_resp = await loop.run_in_executor(None, perform_join)
+                log_to_file(f"Join completed. Response: {join_resp}")
+                event_id = join_resp.get("event_id", "unknown")
 
                 # 3. Listen to SSE queue data stream
                 progress_status.value = "Verbindung zum Server hergestellt..."
                 progress_bar.value = 0.3
-                page.update()
+                await page.update()
 
                 stream_url = f"{space_url}/queue/data?session_hash={session_hash}"
                 log_to_file(f"Listening to stream: {stream_url}")
@@ -430,65 +447,89 @@ def main(page: ft.Page):
                 for k, v in auth_headers.items():
                     stream_req.add_header(k, v)
 
-                with urllib.request.urlopen(stream_req, timeout=600) as response:
-                    buffer = ""
-                    completed = False
-                    output_file_info = None
+                # Queue to transfer events from reading thread to event loop
+                event_queue = asyncio.Queue()
 
-                    while not completed:
-                        chunk = response.readline().decode("utf-8")
-                        if not chunk:
-                            break
-                        buffer += chunk
-                        if buffer.endswith("\n\n"):
-                            lines = buffer.strip().split("\n")
+                def run_stream_reader():
+                    try:
+                        with urllib.request.urlopen(stream_req, timeout=600) as response:
                             buffer = ""
-                            for line in lines:
-                                if line.startswith("data:"):
-                                    try:
-                                        evt_data = json.loads(line[5:])
-                                    except json.JSONDecodeError:
-                                        continue
-                                    msg = evt_data.get("msg")
-                                    log_to_file(f"Queue event: {msg}")
+                            completed = False
+                            while not completed:
+                                chunk = response.readline().decode("utf-8")
+                                if not chunk:
+                                    break
+                                buffer += chunk
+                                if buffer.endswith("\n\n"):
+                                    lines = buffer.strip().split("\n")
+                                    buffer = ""
+                                    for line in lines:
+                                        if line.startswith("data:"):
+                                            try:
+                                                evt_data = json.loads(line[5:])
+                                            except json.JSONDecodeError:
+                                                continue
+                                            
+                                            # Put event in queue thread-safely
+                                            loop.call_soon_threadsafe(event_queue.put_nowait, evt_data)
+                                            
+                                            msg = evt_data.get("msg")
+                                            if msg in ["process_completed", "queue_full", "close_stream"]:
+                                                completed = True
+                                                break
+                    except Exception as stream_err:
+                        loop.call_soon_threadsafe(event_queue.put_nowait, {"msg": "error", "error": str(stream_err)})
 
-                                    if msg == "estimation":
-                                        rank = evt_data.get("rank", 0)
-                                        queue_size = evt_data.get("queue_size", 1)
-                                        progress_status.value = f"In Warteschlange... Position {rank+1} von {queue_size}"
-                                        page.update()
+                # Start background thread for stream reading
+                threading.Thread(target=run_stream_reader, daemon=True).start()
 
-                                    elif msg == "process_starts":
-                                        progress_status.value = "Verarbeitung gestartet..."
-                                        progress_bar.value = 0.4
-                                        page.update()
+                # Process events in the main event loop (non-blocking)
+                completed = False
+                output_file_info = None
 
-                                    elif msg == "progress":
-                                        p_data_list = evt_data.get("progress_data", [])
-                                        if p_data_list:
-                                            p_item = p_data_list[0]
-                                            desc = p_item.get("desc", "Verarbeite...")
-                                            prog = p_item.get("progress", None)
-                                            if prog is not None:
-                                                progress_bar.value = 0.4 + (prog * 0.5)
-                                            progress_status.value = desc
-                                            page.update()
+                while not completed:
+                    evt_data = await event_queue.get()
+                    msg = evt_data.get("msg")
+                    log_to_file(f"Queue event received in event loop: {msg}")
 
-                                    elif msg == "process_completed":
-                                        success = evt_data.get("success", False)
-                                        if not success:
-                                            raise Exception("Server-seitige Verarbeitung fehlgeschlagen.")
-                                        output_file_info = evt_data["output"]["data"][0]
-                                        log_to_file(f"Prediction complete. Output: {output_file_info}")
-                                        completed = True
-                                        break
+                    if msg == "error":
+                        raise Exception(evt_data.get("error", "Stream error"))
 
-                                    elif msg == "queue_full":
-                                        raise Exception("Server voll ausgelastet. Bitte spaeter versuchen.")
+                    elif msg == "estimation":
+                        rank = evt_data.get("rank", 0)
+                        queue_size = evt_data.get("queue_size", 1)
+                        progress_status.value = f"In Warteschlange... Position {rank+1} von {queue_size}"
+                        await page.update()
 
-                                    elif msg == "close_stream":
-                                        completed = True
-                                        break
+                    elif msg == "process_starts":
+                        progress_status.value = "Verarbeitung gestartet..."
+                        progress_bar.value = 0.4
+                        await page.update()
+
+                    elif msg == "progress":
+                        p_data_list = evt_data.get("progress_data", [])
+                        if p_data_list:
+                            p_item = p_data_list[0]
+                            desc = p_item.get("desc", "Verarbeite...")
+                            prog = p_item.get("progress", None)
+                            if prog is not None:
+                                progress_bar.value = 0.4 + (prog * 0.5)
+                            progress_status.value = desc
+                            await page.update()
+
+                    elif msg == "process_completed":
+                        success = evt_data.get("success", False)
+                        if not success:
+                            raise Exception("Server-seitige Verarbeitung fehlgeschlagen.")
+                        output_file_info = evt_data["output"]["data"][0]
+                        log_to_file(f"Prediction complete. Output: {output_file_info}")
+                        completed = True
+
+                    elif msg == "queue_full":
+                        raise Exception("Server voll ausgelastet. Bitte spaeter versuchen.")
+
+                    elif msg == "close_stream":
+                        completed = True
 
                 if not output_file_info:
                     raise Exception("Keine Ergebnisdatei vom Server erhalten.")
@@ -496,7 +537,7 @@ def main(page: ft.Page):
                 # 4. Download the resulting PDF file
                 progress_status.value = "Ergebnisdatei wird heruntergeladen..."
                 progress_bar.value = 0.9
-                page.update()
+                await page.update()
 
                 result_url = output_file_info["url"]
                 log_to_file(f"Downloading result from: {result_url}")
@@ -508,22 +549,24 @@ def main(page: ft.Page):
                 temp_dir = tempfile.gettempdir()
                 local_dest = os.path.join(temp_dir, f"ocr_{uuid.uuid4().hex[:8]}.pdf")
 
-                with urllib.request.urlopen(download_req, timeout=120) as dl_resp:
-                    with open(local_dest, "wb") as f_out:
-                        f_out.write(dl_resp.read())
+                def perform_download():
+                    with urllib.request.urlopen(download_req, timeout=120) as dl_resp:
+                        with open(local_dest, "wb") as f_out:
+                            f_out.write(dl_resp.read())
 
+                await loop.run_in_executor(None, perform_download)
                 log_to_file(f"Saved result locally to: {local_dest}")
                 downloaded_result_path = local_dest
 
                 progress_status.value = "Download abgeschlossen!"
                 progress_bar.value = 1.0
-                page.update()
+                await page.update()
 
-                time.sleep(1)
+                await asyncio.sleep(1)
 
                 progress_container.visible = False
                 result_card.visible = True
-                page.update()
+                await page.update()
 
             except Exception as err:
                 err_trace = traceback.format_exc()
@@ -532,17 +575,17 @@ def main(page: ft.Page):
                 file_card.visible = True
                 mode_card.visible = True
                 start_button.visible = True
-                show_error_on_page(page, "Verarbeitungsfehler:", err_trace)
+                await show_error_on_page(page, "Verarbeitungsfehler:", err_trace)
 
-        def start_ocr_click(e):
+        async def start_ocr_click(e):
             if not selected_file_path:
                 return
             start_button.visible = False
             file_card.visible = False
             mode_card.visible = False
             progress_container.visible = True
-            page.update()
-            threading.Thread(target=run_ocr, daemon=True).start()
+            await page.update()
+            page.run_task(run_ocr)
 
         start_button = ft.Button(
             content="OCR Starten",
@@ -575,15 +618,14 @@ def main(page: ft.Page):
 
         page.add(root_column)
         log_to_file("Layout added to page. Calling page.update()...")
-        page.update()
+        await page.update()
         log_to_file("page.update() completed. App fully initialized!")
 
     except Exception as build_err:
-        # Catch ANY exception during UI building and display it
         err_trace = traceback.format_exc()
         log_to_file(f"FATAL UI BUILD ERROR: {err_trace}")
-        show_error_on_page(page, "FATAL: UI konnte nicht aufgebaut werden:", err_trace)
+        await show_error_on_page(page, "FATAL: UI konnte nicht aufgebaut werden:", err_trace)
 
 
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)
