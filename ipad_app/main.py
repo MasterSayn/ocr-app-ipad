@@ -1,16 +1,53 @@
 import flet as ft
-from gradio_client import Client
 import shutil
 import threading
 import os
 import time
+import traceback
+import sys
+
+# Wrap the import of gradio_client and dependencies
+IMPORT_ERROR = None
+try:
+    from gradio_client import Client
+except Exception as e:
+    IMPORT_ERROR = traceback.format_exc()
 
 # Hugging Face Settings
+# Try to get HF_TOKEN from env or local file if any
 HF_SPACE = "MasterSayn/ocr-app-private"
 HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
 
 def main(page: ft.Page):
+    if IMPORT_ERROR:
+        page.title = "App-Fehler beim Start"
+        page.theme_mode = ft.ThemeMode.DARK
+        page.bgcolor = "#0B0C10"
+        page.add(
+            ft.SafeArea(
+                content=ft.Column([
+                    ft.Icon(ft.icons.ERROR_OUTLINE_ROUNDED, color=ft.colors.RED, size=50),
+                    ft.Text("Fehler beim Starten der App (Import-Fehler):", size=20, color=ft.colors.RED, weight=ft.FontWeight.BOLD),
+                    ft.Container(
+                        content=ft.Text(IMPORT_ERROR, size=12, color=ft.colors.WHITE, font_family="monospace"),
+                        bgcolor="#1F2833",
+                        padding=15,
+                        border_radius=10,
+                        border=ft.border.all(1, ft.colors.OUTLINE),
+                    ),
+                    ft.Text(
+                        "Dies bedeutet, dass eine Python-Bibliothek (z.B. gradio_client oder eine ihrer Abhängigkeiten wie cryptography) "
+                        "nicht mit iOS/iPadOS kompatibel ist, da sie kompilierte C- bzw. Rust-Erweiterungen enthält. "
+                        "Falls dies der Fall ist, werde ich die App so umschreiben, dass sie rein über Standard-Web-Anfragen (urllib) mit dem Server kommuniziert.",
+                        size=14,
+                        color="#C5C6C7"
+                    )
+                ], spacing=15, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            )
+        )
+        return
+
     page.title = "Math & Handwritten OCR Central"
     page.theme_mode = ft.ThemeMode.DARK
     page.padding = 30
