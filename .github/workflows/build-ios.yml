@@ -47,7 +47,7 @@ jobs:
           # Run Flet build ipa in the ipad_app directory.
           # We pass --no-codesign to Flutter to allow building without a developer account.
           # We pipe "yes" to automatically accept downloading the required Flutter SDK.
-          yes | flet build ipa ipad_app --flutter-build-args="--no-codesign"
+          yes | flet build ipa ipad_app --flutter-build-args="--no-codesign" --info-plist UIFileSharingEnabled=true --info-plist LSSupportsOpeningDocumentsInPlace=true
 
       - name: List all files in workspace
         run: |
