@@ -22,3 +22,8 @@ requires = [
 [tool.briefcase.app.mathocr.iOS]
 requires = []
 info_plist = { UIFileSharingEnabled = true, LSSupportsOpeningDocumentsInPlace = true }
+
+[tool.flet.ios.info]
+UIFileSharingEnabled = true
+LSSupportsOpeningDocumentsInPlace = true
+
