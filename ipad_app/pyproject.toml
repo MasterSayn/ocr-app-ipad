@@ -21,9 +21,12 @@ requires = [
 
 [tool.briefcase.app.mathocr.iOS]
 requires = []
-info_plist = { UIFileSharingEnabled = true, LSSupportsOpeningDocumentsInPlace = true }
+info_plist = { UIFileSharingEnabled = true, LSSupportsOpeningDocumentsInPlace = true, CFBundleDocumentTypes = [ { CFBundleTypeName = "PDF Document", LSHandlerRank = "Alternate", LSItemContentTypes = ["com.adobe.pdf"], CFBundleTypeRole = "Viewer" } ] }
 
 [tool.flet.ios.info]
 UIFileSharingEnabled = true
 LSSupportsOpeningDocumentsInPlace = true
+CFBundleDocumentTypes = [
+    { CFBundleTypeName = "PDF Document", LSHandlerRank = "Alternate", LSItemContentTypes = ["com.adobe.pdf"], CFBundleTypeRole = "Viewer" }
+]
 
