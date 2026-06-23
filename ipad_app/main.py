@@ -216,7 +216,7 @@ async def main(page: ft.Page):
                     ft.Container(
                         content=ft.Row(
                             [
-                                ft.Radio(value="Praezise (Hybrid: PaddleOCR + Gemini)", label="Praezise (Hybrid)", fill_color=PRIMARY_COLOR),
+                                ft.Radio(value="Präzise (Hybrid: PaddleOCR + Gemini)", label="Praezise (Hybrid)", fill_color=PRIMARY_COLOR),
                             ]
                         ),
                         padding=10,
