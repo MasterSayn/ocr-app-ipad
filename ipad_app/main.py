@@ -127,8 +127,8 @@ async def main(page: ft.Page):
         # ---- Snack bar for status messages ----
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
         picker = ft.FilePicker()
-        # share_service removed due to Flet iOS runner limitations
-        page.overlay.extend([status_snack, picker])
+        share_service = ft.Share()
+        page.overlay.extend([status_snack])
 
         log_to_file("Building UI components: Header...")
         header = ft.Container(
@@ -333,17 +333,14 @@ async def main(page: ft.Page):
             nonlocal downloaded_result_path
             if downloaded_result_path:
                 try:
-                    log_to_file("Showing share instructions...")
-                    status_snack.content = ft.Text(
-                        "Teilen-Tipp: Nutze 'In Dateien speichern' und teile von dort!",
-                        size=13,
-                        color=ft.Colors.WHITE
+                    log_to_file("Opening share sheet...")
+                    share_file = ft.ShareFile(
+                        path=downloaded_result_path,
+                        name=f"ocr_{selected_file_name}"
                     )
-                    status_snack.bgcolor = ft.Colors.BLUE_900
-                    status_snack.open = True
-                    page.update()
+                    await share_service.share_files([share_file])
                 except Exception as ex:
-                    log_to_file(f"share_click error: {traceback.format_exc()}")
+                    log_to_file(f"share_files error: {traceback.format_exc()}")
 
         async def reset_click(e):
             nonlocal selected_file_path, selected_file_name, downloaded_result_path
