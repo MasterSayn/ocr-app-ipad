@@ -114,6 +114,8 @@ async def main(page: ft.Page):
         selected_file_path = None
         selected_file_name = ""
         downloaded_result_path = None
+        ocr_task = None
+        stream_response = None
 
         # Style constants
         PRIMARY_COLOR = "#007AFF"
@@ -124,7 +126,9 @@ async def main(page: ft.Page):
 
         # ---- Snack bar for status messages ----
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
-        page.overlay.append(status_snack)
+        picker = ft.FilePicker()
+        share_service = ft.Share()
+        page.overlay.extend([status_snack, picker, share_service])
 
         log_to_file("Building UI components: Header...")
         header = ft.Container(
@@ -157,7 +161,6 @@ async def main(page: ft.Page):
             nonlocal selected_file_path, selected_file_name
             try:
                 log_to_file("Opening file picker...")
-                picker = ft.FilePicker()
                 # pick_files is async and returns selected files directly
                 result = await picker.pick_files(allowed_extensions=["pdf"])
                 
@@ -258,9 +261,39 @@ async def main(page: ft.Page):
         progress_status = ft.Text("Bereite Verarbeitung vor...", size=16, color=TEXT_COLOR)
         progress_spinner = ft.ProgressRing(color=PRIMARY_COLOR)
 
+        async def cancel_ocr_click(e):
+            nonlocal ocr_task, stream_response
+            log_to_file("User clicked Abbrechen.")
+            if stream_response:
+                try:
+                    stream_response.close()
+                    log_to_file("Closed stream response successfully.")
+                except Exception as close_err:
+                    log_to_file(f"Error closing stream response: {close_err}")
+            if ocr_task:
+                ocr_task.cancel()
+                log_to_file("Cancelled OCR task.")
+            
+            # Reset UI
+            progress_container.visible = False
+            file_card.visible = True
+            mode_card.visible = True
+            start_button.visible = True
+            page.update()
+
+        cancel_button = ft.Button(
+            content="Abbrechen",
+            icon=ft.Icons.CANCEL,
+            on_click=cancel_ocr_click,
+            color=TEXT_COLOR,
+            bgcolor="#882222",
+            width=180,
+            height=40,
+        )
+
         progress_container = ft.Container(
             content=ft.Column(
-                [progress_spinner, progress_status, progress_bar],
+                [progress_spinner, progress_status, progress_bar, cancel_button],
                 alignment=ft.MainAxisAlignment.CENTER,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=20,
@@ -275,7 +308,6 @@ async def main(page: ft.Page):
             if downloaded_result_path:
                 try:
                     log_to_file("Opening save file dialog...")
-                    picker = ft.FilePicker()
                     # save_file is async and returns the selected path directly on mobile/web
                     # On mobile/web, we MUST pass src_bytes as it doesn't give us direct filesystem write access
                     with open(downloaded_result_path, "rb") as f:
@@ -296,6 +328,19 @@ async def main(page: ft.Page):
                         page.update()
                 except Exception as ex:
                     log_to_file(f"save_file_result error: {traceback.format_exc()}")
+
+        async def share_click(e):
+            nonlocal downloaded_result_path
+            if downloaded_result_path:
+                try:
+                    log_to_file("Opening share sheet...")
+                    share_file = ft.ShareFile(
+                        path=downloaded_result_path,
+                        name=f"ocr_{selected_file_name}"
+                    )
+                    await share_service.share_files([share_file])
+                except Exception as ex:
+                    log_to_file(f"share_files error: {traceback.format_exc()}")
 
         async def reset_click(e):
             nonlocal selected_file_path, selected_file_name, downloaded_result_path
@@ -328,6 +373,13 @@ async def main(page: ft.Page):
                                 bgcolor=PRIMARY_COLOR,
                             ),
                             ft.Button(
+                                content="Teilen",
+                                icon=ft.Icons.SHARE,
+                                on_click=share_click,
+                                color=TEXT_COLOR,
+                                bgcolor=PRIMARY_COLOR,
+                            ),
+                            ft.Button(
                                 content="Neues PDF",
                                 icon=ft.Icons.REFRESH,
                                 on_click=reset_click,
@@ -336,7 +388,7 @@ async def main(page: ft.Page):
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=20,
+                        spacing=15,
                     ),
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -451,8 +503,10 @@ async def main(page: ft.Page):
                 event_queue = asyncio.Queue()
 
                 def run_stream_reader():
+                    nonlocal stream_response
                     try:
                         with urllib.request.urlopen(stream_req, timeout=600) as response:
+                            stream_response = response
                             buffer = ""
                             completed = False
                             while not completed:
@@ -586,6 +640,8 @@ async def main(page: ft.Page):
                 result_card.visible = True
                 page.update()
 
+            except asyncio.CancelledError:
+                log_to_file("run_ocr task cancelled cooperatively.")
             except Exception as err:
                 err_trace = traceback.format_exc()
                 log_to_file(f"run_ocr error: {err_trace}")
@@ -596,6 +652,7 @@ async def main(page: ft.Page):
                 show_error_on_page(page, "Verarbeitungsfehler:", err_trace)
 
         async def start_ocr_click(e):
+            nonlocal ocr_task
             if not selected_file_path:
                 return
             start_button.visible = False
@@ -603,7 +660,7 @@ async def main(page: ft.Page):
             mode_card.visible = False
             progress_container.visible = True
             page.update()
-            page.run_task(run_ocr)
+            ocr_task = page.run_task(run_ocr)
 
         start_button = ft.Button(
             content="OCR Starten",
@@ -638,6 +695,66 @@ async def main(page: ft.Page):
         log_to_file("Layout added to page. Calling page.update()...")
         page.update()
         log_to_file("page.update() completed. App fully initialized!")
+
+        # Inbox folder scanning for incoming files (shared from other apps)
+        async def check_inbox():
+            nonlocal selected_file_path, selected_file_name
+            try:
+                home = os.environ.get("HOME")
+                if not home:
+                    return
+                inbox_dir = os.path.join(home, "Documents", "Inbox")
+                if os.path.exists(inbox_dir):
+                    files = [f for f in os.listdir(inbox_dir) if f.lower().endswith(".pdf")]
+                    if files:
+                        shared_file = files[0]
+                        inbox_path = os.path.join(inbox_dir, shared_file)
+                        
+                        # Move it to a safe place (Documents) to avoid sandbox issues
+                        documents_dir = os.path.join(home, "Documents")
+                        local_copy_name = f"shared_{uuid.uuid4().hex[:8]}_{shared_file}"
+                        local_copy_path = os.path.join(documents_dir, local_copy_name)
+                        
+                        shutil.move(inbox_path, local_copy_path)
+                        log_to_file(f"Imported shared file from Inbox: {shared_file} -> {local_copy_path}")
+                        
+                        # Clean up any other files in Inbox to prevent double-prompts
+                        for f in os.listdir(inbox_dir):
+                            try:
+                                os.remove(os.path.join(inbox_dir, f))
+                            except Exception:
+                                pass
+                        
+                        selected_file_path = local_copy_path
+                        selected_file_name = shared_file
+                        
+                        # Get size
+                        size_bytes = os.path.getsize(local_copy_path)
+                        size_mb = size_bytes / (1024 * 1024)
+                        
+                        # Update UI
+                        file_name_text.value = shared_file
+                        file_size_text.value = f"Geteilte Datei: {size_mb:.2f} MB"
+                        file_card.border = border_all(2, ACCENT_COLOR)
+                        start_button.disabled = False
+                        
+                        status_snack.content = ft.Text(f"Datei importiert: {shared_file}")
+                        status_snack.bgcolor = ft.Colors.GREEN
+                        status_snack.open = True
+                        page.update()
+            except Exception as inbox_err:
+                log_to_file(f"Error checking inbox: {inbox_err}")
+
+        # App lifecycle state handler
+        async def on_lifecycle_change(e: ft.AppLifecycleStateChangeEvent):
+            log_to_file(f"App lifecycle state changed to: {e.state}")
+            if e.state in [ft.AppLifecycleState.RESUME, ft.AppLifecycleState.SHOW]:
+                await check_inbox()
+
+        page.on_app_lifecycle_state_change = on_lifecycle_change
+
+        # Initial check on startup
+        await check_inbox()
 
     except Exception as build_err:
         err_trace = traceback.format_exc()
