@@ -209,7 +209,7 @@ def main(page: ft.Page):
             bgcolor=CARD_BG,
             border_radius=18,
             border=border_all(1, "#555555"),
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment(0, 0),
             on_click=lambda _: file_picker.pick_files(allowed_extensions=["pdf"]),
         )
 
