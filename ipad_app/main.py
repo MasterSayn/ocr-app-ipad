@@ -116,7 +116,7 @@ def main(page: ft.Page):
 
         log_to_file("Defining File Pickers...")
 
-        def pick_files_result(e: ft.FilePickerResultEvent):
+        def pick_files_result(e):
             nonlocal selected_file_path, selected_file_name
             try:
                 if e.files:
@@ -135,7 +135,7 @@ def main(page: ft.Page):
             except Exception as ex:
                 log_to_file(f"pick_files_result error: {traceback.format_exc()}")
 
-        def save_file_result(e: ft.FilePickerResultEvent):
+        def save_file_result(e):
             try:
                 if e.path and downloaded_result_path:
                     shutil.copy(downloaded_result_path, e.path)
