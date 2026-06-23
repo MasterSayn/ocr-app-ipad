@@ -59,7 +59,7 @@ def border_all(width, color):
         ft.BorderSide(width, color)
     )
 
-async def show_error_on_page(page, title, error_text):
+def show_error_on_page(page, title, error_text):
     """Helper: display an error message on the page so it's visible on the iPad."""
     try:
         page.clean()
@@ -86,7 +86,7 @@ async def show_error_on_page(page, title, error_text):
                 scroll=ft.ScrollMode.AUTO,
             )
         )
-        await page.update()
+        page.update()
     except Exception as inner_err:
         log_to_file(f"CRITICAL: Could not even display error on page: {inner_err}")
 
@@ -99,7 +99,7 @@ async def main(page: ft.Page):
         log_to_file("Displaying import error UI...")
         page.title = "App-Fehler"
         page.theme_mode = ft.ThemeMode.DARK
-        await show_error_on_page(page, "Fehler beim Starten (Import-Fehler):", IMPORT_ERROR)
+        show_error_on_page(page, "Fehler beim Starten (Import-Fehler):", IMPORT_ERROR)
         return
 
     # ---- Wrap EVERYTHING in try/except so any crash is visible ----
@@ -175,7 +175,7 @@ async def main(page: ft.Page):
                     start_button.disabled = True
                     file_card.border = border_all(1, "#555555")
                     log_to_file("File picking cancelled.")
-                await page.update()
+                page.update()
             except Exception as ex:
                 log_to_file(f"pick_files error: {traceback.format_exc()}")
 
@@ -293,7 +293,7 @@ async def main(page: ft.Page):
                         status_snack.content = ft.Text("Datei erfolgreich gespeichert!")
                         status_snack.bgcolor = ft.Colors.GREEN
                         status_snack.open = True
-                        await page.update()
+                        page.update()
                 except Exception as ex:
                     log_to_file(f"save_file_result error: {traceback.format_exc()}")
 
@@ -310,7 +310,7 @@ async def main(page: ft.Page):
             mode_card.visible = True
             progress_container.visible = False
             result_card.visible = False
-            await page.update()
+            page.update()
 
         result_card = ft.Container(
             content=ft.Column(
@@ -354,7 +354,7 @@ async def main(page: ft.Page):
                 log_to_file("run_ocr async task started.")
                 progress_status.value = "PDF-Datei wird vorbereitet..."
                 progress_bar.value = 0.05
-                await page.update()
+                page.update()
 
                 loop = asyncio.get_event_loop()
                 space_url = "https://mastersayn-ocr-app-private.hf.space/gradio_api"
@@ -364,7 +364,7 @@ async def main(page: ft.Page):
                 # 1. Upload the PDF file
                 progress_status.value = "PDF-Datei wird hochgeladen..."
                 progress_bar.value = 0.1
-                await page.update()
+                page.update()
 
                 log_to_file(f"Uploading file: {selected_file_path}")
                 boundary = f"----WebKitFormBoundary{uuid.uuid4().hex}"
@@ -402,7 +402,7 @@ async def main(page: ft.Page):
                 # 2. Join the queue for predictions
                 progress_status.value = "Warteschlange beitreten..."
                 progress_bar.value = 0.2
-                await page.update()
+                page.update()
 
                 session_hash = uuid.uuid4().hex[:10]
                 log_to_file(f"Joining queue with session_hash: {session_hash}")
@@ -438,7 +438,7 @@ async def main(page: ft.Page):
                 # 3. Listen to SSE queue data stream
                 progress_status.value = "Verbindung zum Server hergestellt..."
                 progress_bar.value = 0.3
-                await page.update()
+                page.update()
 
                 stream_url = f"{space_url}/queue/data?session_hash={session_hash}"
                 log_to_file(f"Listening to stream: {stream_url}")
@@ -499,12 +499,12 @@ async def main(page: ft.Page):
                         rank = evt_data.get("rank", 0)
                         queue_size = evt_data.get("queue_size", 1)
                         progress_status.value = f"In Warteschlange... Position {rank+1} von {queue_size}"
-                        await page.update()
+                        page.update()
 
                     elif msg == "process_starts":
                         progress_status.value = "Verarbeitung gestartet..."
                         progress_bar.value = 0.4
-                        await page.update()
+                        page.update()
 
                     elif msg == "progress":
                         p_data_list = evt_data.get("progress_data", [])
@@ -515,7 +515,7 @@ async def main(page: ft.Page):
                             if prog is not None:
                                 progress_bar.value = 0.4 + (prog * 0.5)
                             progress_status.value = desc
-                            await page.update()
+                            page.update()
 
                     elif msg == "process_completed":
                         success = evt_data.get("success", False)
@@ -537,7 +537,7 @@ async def main(page: ft.Page):
                 # 4. Download the resulting PDF file
                 progress_status.value = "Ergebnisdatei wird heruntergeladen..."
                 progress_bar.value = 0.9
-                await page.update()
+                page.update()
 
                 result_url = output_file_info["url"]
                 log_to_file(f"Downloading result from: {result_url}")
@@ -560,13 +560,13 @@ async def main(page: ft.Page):
 
                 progress_status.value = "Download abgeschlossen!"
                 progress_bar.value = 1.0
-                await page.update()
+                page.update()
 
                 await asyncio.sleep(1)
 
                 progress_container.visible = False
                 result_card.visible = True
-                await page.update()
+                page.update()
 
             except Exception as err:
                 err_trace = traceback.format_exc()
@@ -575,7 +575,7 @@ async def main(page: ft.Page):
                 file_card.visible = True
                 mode_card.visible = True
                 start_button.visible = True
-                await show_error_on_page(page, "Verarbeitungsfehler:", err_trace)
+                show_error_on_page(page, "Verarbeitungsfehler:", err_trace)
 
         async def start_ocr_click(e):
             if not selected_file_path:
@@ -584,7 +584,7 @@ async def main(page: ft.Page):
             file_card.visible = False
             mode_card.visible = False
             progress_container.visible = True
-            await page.update()
+            page.update()
             page.run_task(run_ocr)
 
         start_button = ft.Button(
@@ -618,13 +618,13 @@ async def main(page: ft.Page):
 
         page.add(root_column)
         log_to_file("Layout added to page. Calling page.update()...")
-        await page.update()
+        page.update()
         log_to_file("page.update() completed. App fully initialized!")
 
     except Exception as build_err:
         err_trace = traceback.format_exc()
         log_to_file(f"FATAL UI BUILD ERROR: {err_trace}")
-        await show_error_on_page(page, "FATAL: UI konnte nicht aufgebaut werden:", err_trace)
+        show_error_on_page(page, "FATAL: UI konnte nicht aufgebaut werden:", err_trace)
 
 
 if __name__ == "__main__":
