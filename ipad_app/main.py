@@ -51,6 +51,16 @@ HF_SPACE = "MasterSayn/ocr-app-private"
 HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
 
+
+def border_all(width, color):
+    return ft.Border(
+        ft.BorderSide(width, color),
+        ft.BorderSide(width, color),
+        ft.BorderSide(width, color),
+        ft.BorderSide(width, color)
+    )
+
+
 def show_error_on_page(page, title, error_text):
     """Helper: display an error message on the page so it's visible on the iPad."""
     try:
@@ -125,12 +135,12 @@ def main(page: ft.Page):
                     file_name_text.value = selected_file_name
                     file_size_text.value = f"Groesse: {round(e.files[0].size / 1024 / 1024, 2)} MB"
                     start_button.disabled = False
-                    file_card.border = ft.border.all(2, ACCENT_COLOR)
+                    file_card.border = border_all(2, ACCENT_COLOR)
                 else:
                     file_name_text.value = "Keine Datei ausgewaehlt"
                     file_size_text.value = ""
                     start_button.disabled = True
-                    file_card.border = ft.border.all(1, "#555555")
+                    file_card.border = border_all(1, "#555555")
                 page.update()
             except Exception as ex:
                 log_to_file(f"pick_files_result error: {traceback.format_exc()}")
@@ -198,7 +208,7 @@ def main(page: ft.Page):
             height=180,
             bgcolor=CARD_BG,
             border_radius=18,
-            border=ft.border.all(1, "#555555"),
+            border=border_all(1, "#555555"),
             alignment=ft.alignment.center,
             on_click=lambda _: file_picker.pick_files(allowed_extensions=["pdf"]),
         )
@@ -255,7 +265,7 @@ def main(page: ft.Page):
             padding=20,
             bgcolor=CARD_BG,
             border_radius=18,
-            border=ft.border.all(1, "#555555"),
+            border=border_all(1, "#555555"),
         )
 
         log_to_file("Building UI components: Progress container...")
@@ -286,7 +296,7 @@ def main(page: ft.Page):
             downloaded_result_path = None
             file_name_text.value = "Tippe, um eine PDF-Datei auszuwaehlen"
             file_size_text.value = ""
-            file_card.border = ft.border.all(1, "#555555")
+            file_card.border = border_all(1, "#555555")
             start_button.visible = True
             file_card.visible = True
             mode_card.visible = True
