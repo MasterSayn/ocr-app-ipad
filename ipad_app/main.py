@@ -447,12 +447,21 @@ async def main(page: ft.Page):
             ),
         )
 
+        smart_skip_chk = ft.Checkbox(
+            label="Bereits durchsuchbare Seiten ueberspringen (Smart-Skip)",
+            value=True,
+            fill_color=PRIMARY_COLOR,
+            label_style=ft.TextStyle(color=TEXT_COLOR)
+        )
+
         mode_card = ft.Container(
             content=ft.Column(
                 [
                     ft.Text("OCR Modus Auswaehlen", size=18, color=TEXT_COLOR, weight=ft.FontWeight.BOLD),
                     ft.Divider(color="#555555"),
                     mode_radio,
+                    ft.Divider(color="#555555"),
+                    smart_skip_chk,
                 ]
             ),
             width=550,
@@ -673,8 +682,9 @@ async def main(page: ft.Page):
                             "meta": {"_type": "gradio.FileData"},
                         },
                         mode_radio.value,
+                        smart_skip_chk.value,
                     ],
-                    "fn_index": 0,
+                    "fn_index": 1,
                     "session_hash": session_hash,
                 }
 
