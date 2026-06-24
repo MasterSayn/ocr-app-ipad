@@ -324,7 +324,7 @@ async def main(page: ft.Page):
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
         picker = ft.FilePicker()
         share_service = ft.Share()
-        page.overlay.extend([status_snack])
+        page.overlay.extend([status_snack, picker, share_service])
 
         log_to_file("Building UI components: Header...")
         header = ft.Container(
