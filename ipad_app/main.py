@@ -820,11 +820,7 @@ async def main(page: ft.Page):
                     base_name += ".pdf"
                 
                 local_dest = os.path.join(finished_dir, base_name)
-                name_no_ext, ext = os.path.splitext(base_name)
-                counter = 1
-                while os.path.exists(local_dest):
-                    local_dest = os.path.join(finished_dir, f"{name_no_ext}_{counter}{ext}")
-                    counter += 1
+
 
                 def perform_download():
                     with urllib.request.urlopen(download_req, timeout=120) as dl_resp:
