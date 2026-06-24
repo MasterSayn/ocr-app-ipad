@@ -145,7 +145,7 @@ async def main(page: ft.Page):
 
         # History State and Controls
         selected_history_paths = set()
-        history_list_column = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, max_height=300)
+        history_list_column = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, height=300)
         
         def on_history_select_change(e):
             path = e.control.data
