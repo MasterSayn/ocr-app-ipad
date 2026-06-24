@@ -51,6 +51,25 @@ except Exception as e:
 HF_SPACE = "MasterSayn/ocr-app-private"
 HF_TOKEN = os.environ.get("HF_TOKEN") or "HF_TOKEN_PLACEHOLDER"
 
+def get_ocr_finished_dir():
+    home = os.environ.get("HOME")
+    dirs_to_try = []
+    if home:
+        dirs_to_try.append(os.path.join(home, "Documents", "OCR_Finished"))
+    try:
+        dirs_to_try.append(os.path.join(os.path.expanduser("~"), "Documents", "OCR_Finished"))
+    except Exception:
+        pass
+    dirs_to_try.append(os.path.join(tempfile.gettempdir(), "OCR_Finished"))
+    
+    for d in dirs_to_try:
+        try:
+            os.makedirs(d, exist_ok=True)
+            return d
+        except Exception:
+            pass
+    return tempfile.gettempdir()
+
 def border_all(width, color):
     return ft.Border(
         ft.BorderSide(width, color),
@@ -123,6 +142,183 @@ async def main(page: ft.Page):
         TEXT_COLOR = "#FFFFFF"
         MUTED_TEXT = "#C5C6C7"
         ACCENT_COLOR = "#66FCF1"
+
+        # History State and Controls
+        selected_history_paths = set()
+        history_list_column = ft.Column(spacing=10, scroll=ft.ScrollMode.AUTO, max_height=300)
+        
+        def on_history_select_change(e):
+            path = e.control.data
+            if e.control.value:
+                selected_history_paths.add(path)
+            else:
+                selected_history_paths.discard(path)
+            update_bulk_buttons_state()
+
+        def update_bulk_buttons_state():
+            has_selection = len(selected_history_paths) > 0
+            share_bulk_btn.disabled = not has_selection
+            delete_bulk_btn.disabled = not has_selection
+            page.update()
+
+        async def select_all_history(e):
+            selected_history_paths.clear()
+            for control in history_list_column.controls:
+                if isinstance(control, ft.Row) and control.controls:
+                    chk = control.controls[0]
+                    if isinstance(chk, ft.Checkbox):
+                        chk.value = True
+                        selected_history_paths.add(chk.data)
+            update_bulk_buttons_state()
+
+        async def deselect_all_history(e):
+            selected_history_paths.clear()
+            for control in history_list_column.controls:
+                if isinstance(control, ft.Row) and control.controls:
+                    chk = control.controls[0]
+                    if isinstance(chk, ft.Checkbox):
+                        chk.value = False
+            update_bulk_buttons_state()
+
+        async def share_selected_history():
+            if not selected_history_paths:
+                return
+            try:
+                log_to_file(f"Sharing {len(selected_history_paths)} files...")
+                share_files_list = []
+                for p in selected_history_paths:
+                    filename = os.path.basename(p)
+                    share_files_list.append(ft.ShareFile(path=p, name=filename))
+                await share_service.share_files(share_files_list)
+            except Exception as ex:
+                log_to_file(f"share_selected_history error: {traceback.format_exc()}")
+
+        async def delete_selected_history():
+            if not selected_history_paths:
+                return
+            try:
+                log_to_file(f"Deleting {len(selected_history_paths)} files...")
+                for p in list(selected_history_paths):
+                    if os.path.exists(p):
+                        os.remove(p)
+                    selected_history_paths.discard(p)
+                await refresh_history_ui()
+            except Exception as ex:
+                log_to_file(f"delete_selected_history error: {traceback.format_exc()}")
+
+        async def share_single_file(path, name):
+            try:
+                log_to_file(f"Sharing single file: {name}")
+                await share_service.share_files([ft.ShareFile(path=path, name=name)])
+            except Exception as ex:
+                log_to_file(f"share_single_file error: {traceback.format_exc()}")
+
+        async def delete_single_file(path):
+            try:
+                log_to_file(f"Deleting single file: {path}")
+                if os.path.exists(path):
+                    os.remove(path)
+                selected_history_paths.discard(path)
+                await refresh_history_ui()
+            except Exception as ex:
+                log_to_file(f"delete_single_file error: {traceback.format_exc()}")
+
+        async def refresh_history_ui():
+            try:
+                finished_dir = get_ocr_finished_dir()
+                log_to_file(f"Scanning history in {finished_dir}...")
+                
+                files = []
+                if os.path.exists(finished_dir):
+                    for f in os.listdir(finished_dir):
+                        if f.lower().endswith(".pdf"):
+                            full_path = os.path.join(finished_dir, f)
+                            stat = os.stat(full_path)
+                            files.append((f, full_path, stat.st_size, stat.st_mtime))
+                
+                files.sort(key=lambda x: x[3], reverse=True)
+                history_list_column.controls.clear()
+                
+                if not files:
+                    history_list_column.controls.append(
+                        ft.Container(
+                            content=ft.Text("Keine verarbeiteten Dateien vorhanden.", color=MUTED_TEXT, size=14),
+                            alignment=ft.alignment.center,
+                            padding=20,
+                        )
+                    )
+                else:
+                    for filename, full_path, size_bytes, mtime in files:
+                        size_mb = size_bytes / (1024 * 1024)
+                        size_str = f"{size_mb:.2f} MB"
+                        
+                        def create_history_row(fname, fpath, fsize_str):
+                            chk = ft.Checkbox(
+                                value=(fpath in selected_history_paths),
+                                data=fpath,
+                                on_change=on_history_select_change
+                            )
+                            
+                            display_name = fname
+                            if len(display_name) > 35:
+                                display_name = display_name[:32] + "..."
+                                
+                            row = ft.Row(
+                                [
+                                    chk,
+                                    ft.Column(
+                                        [
+                                            ft.Text(display_name, size=14, weight=ft.FontWeight.W_500, color=TEXT_COLOR, overflow=ft.TextOverflow.ELLIPSIS),
+                                            ft.Text(fsize_str, size=11, color=MUTED_TEXT),
+                                        ],
+                                        spacing=2,
+                                        expand=True,
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.SHARE,
+                                        icon_color=PRIMARY_COLOR,
+                                        icon_size=20,
+                                        tooltip="Teilen",
+                                        on_click=lambda e: share_single_file(fpath, fname)
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE_OUTLINE,
+                                        icon_color=ft.Colors.RED,
+                                        icon_size=20,
+                                        tooltip="Löschen",
+                                        on_click=lambda e: delete_single_file(fpath)
+                                    ),
+                                ],
+                                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                            )
+                            return row
+                            
+                        history_list_column.controls.append(create_history_row(filename, full_path, size_str))
+                
+                valid_paths = {f[1] for f in files}
+                selected_history_paths.intersection_update(valid_paths)
+                update_bulk_buttons_state()
+            except Exception as e:
+                log_to_file(f"refresh_history_ui error: {traceback.format_exc()}")
+
+        share_bulk_btn = ft.Button(
+            content="Ausgewählte teilen",
+            icon=ft.Icons.SHARE,
+            on_click=lambda e: share_selected_history(),
+            color=TEXT_COLOR,
+            bgcolor=PRIMARY_COLOR,
+            disabled=True,
+        )
+        delete_bulk_btn = ft.Button(
+            content="Ausgewählte löschen",
+            icon=ft.Icons.DELETE,
+            on_click=lambda e: delete_selected_history(),
+            color=TEXT_COLOR,
+            bgcolor="#882222",
+            disabled=True,
+        )
+
 
         # ---- Snack bar for status messages ----
         status_snack = ft.SnackBar(content=ft.Text(""), bgcolor=ft.Colors.GREEN)
@@ -618,8 +814,17 @@ async def main(page: ft.Page):
                 for k, v in auth_headers.items():
                     download_req.add_header(k, v)
 
-                temp_dir = tempfile.gettempdir()
-                local_dest = os.path.join(temp_dir, f"ocr_{uuid.uuid4().hex[:8]}.pdf")
+                finished_dir = get_ocr_finished_dir()
+                base_name = f"ocr_{selected_file_name}"
+                if not base_name.lower().endswith(".pdf"):
+                    base_name += ".pdf"
+                
+                local_dest = os.path.join(finished_dir, base_name)
+                name_no_ext, ext = os.path.splitext(base_name)
+                counter = 1
+                while os.path.exists(local_dest):
+                    local_dest = os.path.join(finished_dir, f"{name_no_ext}_{counter}{ext}")
+                    counter += 1
 
                 def perform_download():
                     with urllib.request.urlopen(download_req, timeout=120) as dl_resp:
@@ -638,7 +843,8 @@ async def main(page: ft.Page):
 
                 progress_container.visible = False
                 result_card.visible = True
-                page.update()
+                await refresh_history_ui()
+
 
             except asyncio.CancelledError:
                 log_to_file("run_ocr task cancelled cooperatively.")
@@ -673,6 +879,41 @@ async def main(page: ft.Page):
             height=50,
         )
 
+        # History Card UI definition
+        history_card = ft.Container(
+            content=ft.Column(
+                [
+                    ft.Text("Verlauf / OCR-Dateien", size=18, color=TEXT_COLOR, weight=ft.FontWeight.BOLD),
+                    ft.Divider(color="#555555"),
+                    # Bulk actions row
+                    ft.Row(
+                        [
+                            ft.TextButton("Alle auswählen", on_click=select_all_history),
+                            ft.TextButton("Auswahl aufheben", on_click=deselect_all_history),
+                        ],
+                        spacing=10,
+                    ),
+                    history_list_column,
+                    ft.Divider(color="#555555"),
+                    # Bulk operations buttons
+                    ft.Row(
+                        [
+                            share_bulk_btn,
+                            delete_bulk_btn,
+                        ],
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=15,
+                    )
+                ]
+            ),
+            width=550,
+            padding=20,
+            bgcolor=CARD_BG,
+            border_radius=18,
+            border=border_all(1, "#555555"),
+            visible=True,
+        )
+
         log_to_file("Assembling page layout...")
         page.scroll = ft.ScrollMode.AUTO
 
@@ -686,10 +927,12 @@ async def main(page: ft.Page):
                 ft.Row([start_button], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Row([progress_container], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Row([result_card], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([history_card], alignment=ft.MainAxisAlignment.CENTER),
             ],
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             spacing=20,
         )
+
 
         page.add(root_column)
         log_to_file("Layout added to page. Calling page.update()...")
@@ -755,6 +998,7 @@ async def main(page: ft.Page):
 
         # Initial check on startup
         await check_inbox()
+        await refresh_history_ui()
 
     except Exception as build_err:
         err_trace = traceback.format_exc()
