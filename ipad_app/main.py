@@ -425,6 +425,16 @@ async def main(page: ft.Page):
                     ft.Container(
                         content=ft.Row(
                             [
+                                ft.Radio(value="Lokal Schnell (PaddleOCR)", label="Lokal Schnell (Offline)", fill_color=PRIMARY_COLOR),
+                            ]
+                        ),
+                        padding=10,
+                        bgcolor="#2C3539",
+                        border_radius=10,
+                    ),
+                    ft.Container(
+                        content=ft.Row(
+                            [
                                 ft.Radio(value="Lokal Deep (PaddleOCR + TrOCR)", label="Lokal Deep (Offline)", fill_color=PRIMARY_COLOR),
                             ]
                         ),
