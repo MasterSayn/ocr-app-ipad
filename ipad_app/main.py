@@ -357,17 +357,39 @@ async def main(page: ft.Page):
             nonlocal selected_file_path, selected_file_name
             try:
                 log_to_file("Opening file picker...")
-                # pick_files is async and returns selected files directly
-                result = await picker.pick_files(allowed_extensions=["pdf"])
+                # Use CUSTOM type with allowed_extensions and with_data=True for iOS bytes
+                result = await picker.pick_files(
+                    file_type=ft.FilePickerFileType.CUSTOM,
+                    allowed_extensions=["pdf"],
+                    with_data=True
+                )
                 
-                if result and result[0].path:
-                    selected_file_path = result[0].path
-                    selected_file_name = result[0].name
+                if result and len(result) > 0:
+                    picked_file = result[0]
+                    if picked_file.path:
+                        selected_file_path = picked_file.path
+                        selected_file_name = picked_file.name
+                        file_size_mb = picked_file.size / 1024 / 1024
+                    elif picked_file.bytes:
+                        # Write iOS picked bytes to temporary file
+                        import tempfile
+                        temp_dir = tempfile.gettempdir()
+                        temp_path = os.path.join(temp_dir, picked_file.name)
+                        log_to_file(f"Writing picked file bytes to temp path: {temp_path}")
+                        with open(temp_path, "wb") as temp_f:
+                            temp_f.write(picked_file.bytes)
+                        selected_file_path = temp_path
+                        selected_file_name = picked_file.name
+                        file_size_mb = len(picked_file.bytes) / 1024 / 1024
+                    else:
+                        log_to_file("Picked file has neither path nor bytes!")
+                        raise Exception("Picked file has neither path nor bytes")
+
                     file_name_text.value = selected_file_name
-                    file_size_text.value = f"Groesse: {round(result[0].size / 1024 / 1024, 2)} MB"
+                    file_size_text.value = f"Groesse: {round(file_size_mb, 2)} MB"
                     start_button.disabled = False
                     file_card.border = border_all(2, ACCENT_COLOR)
-                    log_to_file(f"File selected: {selected_file_name}")
+                    log_to_file(f"File selected: {selected_file_name} ({selected_file_path})")
                 else:
                     file_name_text.value = "Tippe, um eine PDF-Datei auszuwaehlen"
                     file_size_text.value = ""
